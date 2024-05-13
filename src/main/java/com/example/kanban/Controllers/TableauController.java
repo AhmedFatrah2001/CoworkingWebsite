@@ -116,11 +116,14 @@ public class TableauController {
     @Transactional
     @PostMapping("/{id}/updateBoard")
     public ResponseEntity<Void> updateTableauBoard(@PathVariable Long id, @RequestBody BoardResponse board) {
+        Tableau boardEntity = entityManager.find(Tableau.class, id);
+
         board.getLanes().forEach(lane -> {
             ColonneTache colonne = entityManager.find(ColonneTache.class, Long.parseLong(lane.getId()));
             if (colonne == null) {
                 colonne = new ColonneTache();
                 colonne.setNom(lane.getTitle());
+                colonne.setTableau(boardEntity);
             } else {
                 colonne.setNom(lane.getTitle());
             }
@@ -128,7 +131,12 @@ public class TableauController {
 
             ColonneTache finalColonne = colonne;
             lane.getCards().forEach(card -> {
-                Tache tache = entityManager.find(Tache.class, Long.parseLong(card.getId()));
+                Tache tache = null;
+                try {
+                    tache = entityManager.find(Tache.class, Long.parseLong(card.getId()));
+                } catch (NumberFormatException e) {
+                    // Expected when card.getId() is not a valid long number
+                }
                 if (tache == null) {
                     tache = new Tache();
                     tache.setTitre(card.getTitle());
@@ -144,6 +152,8 @@ public class TableauController {
 
         return ResponseEntity.ok().build();
     }
+
+
 
 
 }
