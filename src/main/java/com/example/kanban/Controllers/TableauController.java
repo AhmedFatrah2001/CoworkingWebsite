@@ -1,8 +1,6 @@
 package com.example.kanban.Controllers;
 
 import com.example.kanban.Models.Tableau;
-import com.example.kanban.Models.ColonneTache;
-import com.example.kanban.Models.Tache;
 import com.example.kanban.Services.TableauService;
 import com.example.kanban.dto.*;
 import jakarta.persistence.EntityManager;
@@ -73,87 +71,5 @@ public class TableauController {
         }
         return ResponseEntity.ok(tableaux);
     }
-    @GetMapping("/{id}/board")
-    public ResponseEntity<BoardResponse> getTableauBoard(@PathVariable Long id) {
-        // Fetching the lanes (colonnes) for the tableau
-        List<Object[]> colonnes = entityManager.createQuery(
-                        "SELECT c.id, c.nom FROM ColonneTache c WHERE c.tableau.id = :id", Object[].class)
-                .setParameter("id", id)
-                .getResultList();
-
-        BoardResponse boardResponse = new BoardResponse();
-        List<Lane> lanes = new ArrayList<>();
-
-        for (Object[] colonne : colonnes) {
-            Long colonneId = (Long) colonne[0];
-            String colonneNom = (String) colonne[1];
-
-            Lane lane = new Lane();
-            lane.setId(colonneId.toString());
-            lane.setTitle(colonneNom);
-
-            List<Card> cards = entityManager.createQuery(
-                            "SELECT t.id, t.titre, t.description FROM Tache t WHERE t.colonneTache.id = :colonneId", Object[].class)
-                    .setParameter("colonneId", colonneId)
-                    .getResultList()
-                    .stream()
-                    .map(result -> {
-                        Card card = new Card();
-                        card.setId(((Long) result[0]).toString());
-                        card.setTitle((String) result[1]);
-                        card.setDescription((String) result[2]);
-                        return card;
-                    })
-                    .collect(Collectors.toList());
-
-            lane.setCards(cards);
-            lanes.add(lane);
-        }
-
-        boardResponse.setLanes(lanes);
-        return ResponseEntity.ok(boardResponse);
-    }
-    @Transactional
-    @PostMapping("/{id}/updateBoard")
-    public ResponseEntity<Void> updateTableauBoard(@PathVariable Long id, @RequestBody BoardResponse board) {
-        Tableau boardEntity = entityManager.find(Tableau.class, id);
-
-        board.getLanes().forEach(lane -> {
-            ColonneTache colonne = entityManager.find(ColonneTache.class, Long.parseLong(lane.getId()));
-            if (colonne == null) {
-                colonne = new ColonneTache();
-                colonne.setNom(lane.getTitle());
-                colonne.setTableau(boardEntity);
-            } else {
-                colonne.setNom(lane.getTitle());
-            }
-            entityManager.persist(colonne);
-
-            ColonneTache finalColonne = colonne;
-            lane.getCards().forEach(card -> {
-                Tache tache = null;
-                try {
-                    tache = entityManager.find(Tache.class, Long.parseLong(card.getId()));
-                } catch (NumberFormatException e) {
-                    // Expected when card.getId() is not a valid long number
-                }
-                if (tache == null) {
-                    tache = new Tache();
-                    tache.setTitre(card.getTitle());
-                    tache.setDescription(card.getDescription());
-                    tache.setColonneTache(finalColonne);
-                } else {
-                    tache.setTitre(card.getTitle());
-                    tache.setDescription(card.getDescription());
-                }
-                entityManager.persist(tache);
-            });
-        });
-
-        return ResponseEntity.ok().build();
-    }
-
-
-
 
 }
